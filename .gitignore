@@ -390,7 +390,7 @@ celerybeat-schedule
 
 # SageMath parsed files
 *.sage.py
-
+*.exe
 .vscode
 # Environments
 .env
@@ -415,3 +415,4 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
