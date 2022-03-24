@@ -7,18 +7,20 @@
 #include <stack>
 using namespace std;
 
+
 /*
 Definition of a point
 Args:
-    x [int]: the x coordinate of the point
-    y [int]: the y coordinate of the point
+    x [long long int]: the x coordinate of the point
+    y [long long int]: the y coordinate of the point
     id [int]: the id of the point, starting from 1 to n
 */
 class Point
 {
 public:
-    int x;
-    int y;
+    //和张雄帅同学交流，意识到需要把x，y，id坐标改成long long，并且注意取余运算。
+    long long x;
+    long long y;
     int id;
     Point() 
     {
@@ -26,7 +28,7 @@ public:
         y = 0;
         id = 0;
     }
-    Point(int a, int b, int i)
+    Point(long long a, long long b, int i)
     {
         x = a;
         y = b;
@@ -44,11 +46,11 @@ Args:
     s [2D Point]: [one of the three points of the triangle]
     
 Returns:
-    area [int]: [the signed area * 2 of the triangle, it is positive if s is at the left of the line pq]
+    area [long long int]: [the signed area * 2 of the triangle, it is positive if s is at the left of the line pq]
 */
-int Area2(Point p, Point q, Point s)
+long long Area2(Point p, Point q, Point s)
 {
-    int area = p.x * q.y - p.y * q.x + q.x * s.y - q.y * s.x + s.x * p.y - s.y * p.x;
+    long long area = p.x * q.y - p.y * q.x + q.x * s.y - q.y * s.x + s.x * p.y - s.y * p.x;
     return area;
 }
 
@@ -66,7 +68,7 @@ Returns:
 bool Between(Point p, Point s, Point q)
 {
     bool result = 0;
-    int inner_product = (p.x - s.x) * (s.x - q.x) + (p.y - s.y) * (s.y - q.y);
+    long long inner_product = (p.x - s.x) * (s.x - q.x) + (p.y - s.y) * (s.y - q.y);
     if(inner_product > 0)
     {
         result = 1;
@@ -88,7 +90,7 @@ Returns:
 bool Coliniar(Point p, Point s, Point q)
 {
     bool result = 0;
-    int area2 = Area2(p, q, s);
+    long long area2 = Area2(p, q, s);
     if(area2 == 0)
     {
         result = 1;
@@ -109,7 +111,7 @@ Returns:
 */
 bool ToLeft(Point p, Point q, Point s)
 {
-    int area2 = Area2(p, q, s);
+    long long area2 = Area2(p, q, s);
     bool result = 0;
     if(area2 > 0)
     {
@@ -134,7 +136,7 @@ Args:
 Returns:
     ltl [int]: [the index of the ltl point in the array]
 */
-int LTL(std::vector<Point>& points)
+int LTL(vector<Point>& points)
 {
     int ltl = 0;
     for(int i = 1; i < points.size(); i ++)
@@ -188,9 +190,8 @@ struct PolarAngle
 The main function of Graham Scan algorithm to get the convex hull
 Args:
     points [vector<Point>]: [the point list]
-    
 Returns:
-    S [vector<Point>]: [the polar points of the convex hull]
+    S [vector<Point>]: [the result point list]
 */
 vector<Point> GrahamScan(vector<Point>& points)
 {
@@ -199,13 +200,6 @@ vector<Point> GrahamScan(vector<Point>& points)
     Swap(points, 0, ltl);
     PolarAngle polar_angle_comparator(points[0]);
     sort(points.begin() + 1, points.end(), polar_angle_comparator);
-
-    /*
-    printf("---------------------\n");
-    for(int i = 0; i < points.size(); i ++)
-    {
-        printf("%d %d %d\n", points[i].x, points[i].y, points[i].id);
-    }*/
 
     //initialize the stacks
     //stack top: the last one of the vector
@@ -232,7 +226,8 @@ vector<Point> GrahamScan(vector<Point>& points)
         bool to_left = ToLeft(u, v, w);
         if(to_left)
         {
-            S.push_back(w);
+            Point t_top = T[T.size() - 1];
+            S.push_back(t_top);
             T.pop_back();
         }
         else 
@@ -240,7 +235,7 @@ vector<Point> GrahamScan(vector<Point>& points)
             S.pop_back();
         }
     }
-
+    
     //additional effort: the extreme points in the last edge is not identified
     vector<bool> visit;
     visit.clear();
@@ -260,48 +255,40 @@ vector<Point> GrahamScan(vector<Point>& points)
         int id = points[i].id;
         if(visit[id] == 0)
         {
-            bool coliniar = Coliniar(first, last, points[i]);
-            if(coliniar)
+            bool coliniar = Coliniar(first, points[i], last);
+            bool between = Between(first, points[i], last);
+            if(coliniar && between)
             {
                 S.push_back(points[i]);
             }
         }
     }
-
-    /*
-    printf("---------------------\n");
-    for(int i = 0; i < S.size(); i ++)
-    {
-        printf("%d %d %d\n", S[i].x, S[i].y, S[i].id);
-    }
-    */
-    return S;
+   return S;
 }
 
 int main()
 {
-    //input
     int total_number = 0;
-    int big_number = 1000000007;
     vector<Point> total_points;
     total_points.clear();
     scanf("%d", &total_number);
     for(int i = 1; i <= total_number; i ++)
     {
-        int x = 0, y = 0;
-        scanf("%d %d", &x, &y);
+        long long x = 0, y = 0;
+        scanf("%lld %lld", &x, &y);
         Point new_point(x, y, i);
         total_points.push_back(new_point);
     }
 
     //output
-    vector<Point> polar_points = GrahamScan(total_points);
-    long long int result = 1;
-    for(int i = 0; i < polar_points.size(); i ++)
+    vector<Point> extreme_points = GrahamScan(total_points);
+    long long result = 1;
+    long long big_number = 1000000007;
+    for(int i = 0; i < extreme_points.size(); i ++)
     {
-        result = (result * polar_points[i].id) % big_number;
+        result = ((result % big_number) * (extreme_points[i].id % big_number)) % big_number;
     }
-    result = (result * polar_points.size()) % big_number;
+    result = ((result % big_number) * (extreme_points.size() % big_number)) % big_number;
     printf("%lld", result);
     return 0;
 }
