@@ -1,3 +1,4 @@
+//整体算法参考了https://oi-wiki.org//geometry/half-plane/
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
@@ -5,6 +6,7 @@
 #include <cmath>
 #include <algorithm>
 #include <stack>
+#include <deque>
 using namespace std;
 
 
@@ -294,17 +296,18 @@ Returns:
 */
 double ConvexPolygonArea(const vector<Point>& points)
 {
+    //参考了https://blog.csdn.net/Mikchy/article/details/81490908
     double result = 0.0;
     if(points.size() <= 2)
     {
         return 0.0;
     }
-    for(int i = 0; i < points.size(); i ++)
+    Point start = points[0];
+    for(int i = 1; i < points.size() - 1; i ++)
     {
-        int next = (i + 1) % (points.size());
-        result += (points[i] ^ points[next]);
+        result += ((points[i] - start) ^ (points[i + 1] - start));
     }
-    result = abs(result) / 2.0;
+    result = result / 2.0;
     return result;
 }
 
@@ -364,37 +367,85 @@ Returns:
 vector<Point> HalfPlaneIntersection(vector<HalfSpace>& half_spaces)
 {
     //initialize
-    vector<Point> intersection_points;
-    vector<HalfSpace> half_space_stack; 
-    intersection_points.clear();
-    half_space_stack.clear();
+    deque<Point> intersection_point_queue;
+    deque<HalfSpace> half_space_queue; 
+    intersection_point_queue.clear();
+    half_space_queue.clear();
     vector<HalfSpace> sorted_half_spaces = SortHalfSpaces(half_spaces);
-    HalfSpace first = sorted_half_spaces[0];
-    half_space_stack.push_back(first);
-    sorted_half_spaces.push_back(first); //use the first one to regulate the last intersection point
-    
+    half_space_queue.push_back(sorted_half_spaces[0]);
+
     //the main procedure
     for(int i = 1; i < sorted_half_spaces.size(); i ++)
     {
         HalfSpace current_half_space = sorted_half_spaces[i];
-        while(!intersection_points.empty())
+        //handle the back of the queue
+        while(!intersection_point_queue.empty())
         {
-            Point last_point = intersection_points[intersection_points.size() - 1];
+            Point last_point = intersection_point_queue.back();
             int to_left = ToLeft(current_half_space.s, current_half_space.t, last_point);
             if(to_left < 0)
             {
-                intersection_points.pop_back();
-                half_space_stack.pop_back();
+                intersection_point_queue.pop_back();
+                half_space_queue.pop_back();
             }
             else 
             {
                 break;
             }
         }
-        HalfSpace last_half_space = half_space_stack[half_space_stack.size() - 1];
+
+        //handle the front of the queue
+        while(!intersection_point_queue.empty())
+        {
+            Point first_point = intersection_point_queue.front();
+            int to_left = ToLeft(current_half_space.s, current_half_space.t, first_point);
+            if(to_left < 0)
+            {
+                intersection_point_queue.pop_front();
+                half_space_queue.pop_front();
+            }
+            else 
+            {
+                break;
+            }
+        }
+        HalfSpace last_half_space = half_space_queue.back();
         Point new_intersection_point = GetIntersectionPoint(current_half_space, last_half_space);
-        half_space_stack.push_back(current_half_space);
-        intersection_points.push_back(new_intersection_point);
+        half_space_queue.push_back(current_half_space);
+        intersection_point_queue.push_back(new_intersection_point);
+    }
+
+
+    //use the queue front to handle the queue back
+    HalfSpace current_half_space = half_space_queue.front();
+    while(!intersection_point_queue.empty())
+    {
+        Point last_point = intersection_point_queue.back();
+        int to_left = ToLeft(current_half_space.s, current_half_space.t, last_point);
+        if(to_left < 0)
+        {
+            intersection_point_queue.pop_back();
+            half_space_queue.pop_back();
+         }
+        else 
+        {
+            break;
+        }
+    }
+    HalfSpace last_half_space = half_space_queue.back();
+    Point new_intersection_point = GetIntersectionPoint(current_half_space, last_half_space);
+    half_space_queue.push_back(current_half_space);
+    intersection_point_queue.push_back(new_intersection_point);
+
+
+    //push to the vector
+    vector<Point> intersection_points;
+    intersection_points.clear();
+    while(!intersection_point_queue.empty())
+    {
+        Point first_point = intersection_point_queue.front();
+        intersection_points.push_back(first_point);
+        intersection_point_queue.pop_front();
     }
     return intersection_points;
 }
@@ -420,8 +471,6 @@ int main()
             Point new_point = Point(double(x), double(y));
             points.push_back(new_point);
         }
-        double area = ConvexPolygonArea(points);
-        printf("%.3lf\n", area);
         for(int j = 0; j < points.size(); j ++)
         {
             int next = (j + 1) % points.size();
@@ -433,6 +482,6 @@ int main()
     //output
     vector<Point> result_points = HalfPlaneIntersection(half_spaces);
     double result = ConvexPolygonArea(result_points);
-    printf("%.3lf", result);
+    printf("%.4lf", result);
     return 0;
 }
