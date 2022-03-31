@@ -77,7 +77,7 @@ bool Between(Point p, Point s, Point q)
 }
 
 /*
-The between test, testing whether p, q, s are coliniar
+The coliniar test, testing whether p, q, s are coliniar
 
 Args:
     p [2D Point]: [one of the three points]
