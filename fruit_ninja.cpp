@@ -489,7 +489,7 @@ int main()
             half_spaces.push_back(down);
             half_spaces.push_back(up);
         }
-        //add back frames to avoid infinite area
+        //add frames to avoid infinite area
         Point down_left = Point(smallest, smallest);
         Point down_right = Point(biggest, smallest);
         Point up_right = Point(biggest, biggest);
