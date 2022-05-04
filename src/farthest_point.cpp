@@ -84,6 +84,43 @@ public:
         double result = x * b.y - y * b.x;
         return result;
     }
+    //sort by LTL, used in removing redundant
+    bool operator<(const Point& b) const 
+    {
+        bool result = 0;
+        if(y < b.y)
+        {
+            result = 1;
+        }
+        else if(y == b.y)
+        {
+            if(x < b.x)
+            {
+                result = 1;
+            }
+        }
+        return result;
+    }
+
+    bool operator==(const Point& b) const 
+    {
+        double dist = GetDistance(b);
+        if(dist <= 1e-12)
+        {
+            return 1;
+        }
+        else 
+        {
+            return 0;
+        }
+    }
+
+    double GetDistance(const Point& b) const 
+    {
+        double dist = sqrt((x - b.x) * (x - b.x) + (y - b.y) * (y - b.y));
+        return dist;
+    }
+    
 };
 
 class Line
@@ -133,6 +170,14 @@ public:
     {
         double x = -(b - line.b) / (k - line.k);
         double y = k * x + b;
+        if(x == -0)
+        {
+            x = 0.0;
+        }
+        if(y == -0)
+        {
+            y = 0.0;
+        }
         Point result = Point(x, y);
         return result;
     }
@@ -305,7 +350,7 @@ vector<Point> GetUsefulPoints(vector<Line>& lines)
         double k = line.k;
         double next_k = k;
         int j = (i + 1) % lines.size();
-        while(1)
+        while(j != i)
         {
             double new_k = lines[j].k;
             bool get_intersection_point = 0;
@@ -356,6 +401,44 @@ vector<Point> GetUsefulPoints(vector<Line>& lines)
             {
                 j = (j + 1) % lines.size();
             }
+        }
+    }
+    return points;
+}
+
+/*
+Remove the redundant points of a convex hull
+
+Args:
+    raw_points [vector<Point>]: [the points]
+
+Returns:
+    points [vector<Point>]: [the points without redundant]
+*/
+vector<Point> RemoveRedundantPoints(vector<Point>& raw_points)
+{
+    sort(raw_points.begin(), raw_points.end());
+    vector<bool> save_list;
+    vector<Point> points;
+    save_list.clear();
+    points.clear();
+    int n = raw_points.size();
+    for(int i = 0; i < n; i ++)
+    {
+        save_list.push_back(1);
+    }
+    for(int i = 0; i < n - 1; i ++)
+    {
+        if(raw_points[i] == raw_points[i + 1])
+        {
+            save_list[i + 1] = 0;
+        }
+    }
+    for(int i = 0; i < n; i ++)
+    {
+        if(save_list[i])
+        {
+            points.push_back(raw_points[i]);
         }
     }
     return points;
@@ -414,16 +497,94 @@ vector<Point> GrahamScan(vector<Point>& points)
 }
 
 
+/*
+Get the edge points of a convex hull
 
+Args:
+    points [vector<Point>]: [the points on the convex hull, at least 3 points]
 
+Returns:
+    edge_points [vector<Point>]: [the edge points on the convex hull]
+*/
+vector<Point> GetEdgePoints(vector<Point> &points)
+{
+    int n = points.size();
+    vector<bool> save_list;
+    vector<Point> edge_points;
+    save_list.clear();
+    edge_points.clear();
+    for(int i = 0; i < n; i ++)
+    {
+        save_list.push_back(1);
+    }
+    for(int i = 0; i < n; i ++)
+    {
+        int current = i;
+        int next = (i + 1) % n;
+        int last = (i - 1 + n) % n;
+        bool coliniar = Coliniar(points[last], points[current], points[next]);
+        if(coliniar)
+        {
+            save_list[current] = 0;
+        }
+    }
+    for(int i = 0; i < n; i ++)
+    {
+        if(save_list[i])
+        {
+            edge_points.push_back(points[i]);
+        }
+    }
+    return edge_points;
+}
 
+/*
+Get the max distance of two points by brute force
 
+Args:
+    points [vector<Point>]: [the points on the convex hull]
 
+Returns:
+    max_dist [double]: [the max distance of two points]
+*/
+double GetMaxDistance(vector<Point>& points)
+{
+    double max_dist = 0.0;
+    int n = points.size();
+    for(int i = 0; i < n; i ++)
+    {
+        for(int j = 0; j < n; j ++)
+        {
+            double dist = points[i].GetDistance(points[j]);
+            if(dist > max_dist)
+            {
+                max_dist = dist;
+            }
+        }
+    }
+    return max_dist;
+}
 
-
-
-
-
+/*
+Judge if all lines are parallel, use this to avoid degeneration
+Args:
+    lines [vector<Line>]: [the lines]
+Return:
+    result [bool]: [if all parallel, return 1, else return 0]
+*/
+double JudgeAllParallel(vector<Line>& lines)
+{
+    bool result = 1;
+    for(int i = 0; i < lines.size() - 1; i ++)
+    {
+        if(lines[i + 1].k != lines[i].k)
+        {
+            result = 0;
+            break;
+        }
+    }
+    return result;
+}
 
 
 int main()
@@ -439,8 +600,30 @@ int main()
         Line new_line = Line(double(k), double(b));
         lines.push_back(new_line);
     }
-    vector<Point> points = GetUsefulPoints(lines);
-    vector<Point> convex_hull = GrahamScan(points);
-    int kebab = 0;
+    if(JudgeAllParallel(lines))
+    {
+        printf("%lf", 0.0);
+        return 0;
+    }
+
+    double max_dist;
+    vector<Point> raw_points = GetUsefulPoints(lines);
+    vector<Point> points = RemoveRedundantPoints(raw_points);
+    if(points.size() <= 1)
+    {
+        max_dist = 0.0;
+    }
+    else if(points.size() == 2)
+    {
+        max_dist = points[0].GetDistance(points[1]);
+    }
+    else 
+    {
+        vector<Point> convex_hull_points = GrahamScan(points);
+        vector<Point> edge_points = GetEdgePoints(convex_hull_points);
+        max_dist = GetMaxDistance(edge_points);
+    }
+    printf("%lf", max_dist);
     return 0;
 }
+
