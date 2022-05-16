@@ -1,3 +1,4 @@
+//求中位数参考了https://www.cnblogs.com/zzzlight/p/14298223.html#
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
@@ -37,12 +38,10 @@ bool CompareX(Point a, Point b)
 {
     return a.x < b.x;
 }
-
 bool CompareY(Point a, Point b)
 {
     return a.y < b.y;
 }
-
 
 class BoundingBox
 {
@@ -213,6 +212,7 @@ RangeNodeY::RangeNodeY(int depth_, RangeNodeX* father_, int start_, int point_nu
 
     //get median and split the list
     int median_index = this->start + this->point_number / 2;
+    //参考了https://www.cnblogs.com/zzzlight/p/14298223.html#
     nth_element(this->father->points.begin() + this->start, this->father->points.begin() + median_index, 
         this->father->points.begin() + this->start + this->point_number, CompareY);
     this->y = this->father->points[median_index].y;
@@ -250,6 +250,7 @@ RangeNodeX::RangeNodeX(int depth_, vector<Point>& points_)
 
     //get median and split the list
     int median_index = this->point_number / 2;
+    //参考了https://www.cnblogs.com/zzzlight/p/14298223.html#
     nth_element(this->points.begin(), this->points.begin() + median_index, this->points.end(), CompareX);
     this->x = this->points[median_index].x;
 
