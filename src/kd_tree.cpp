@@ -13,7 +13,7 @@ Args:
     x [double]: the x coordinate of the point
     y [double]: the y coordinate of the point
 */
-class Point
+struct Point
 {
 public:
     int x;
@@ -31,7 +31,7 @@ public:
 };
 vector<Point> points;
 
-class BoundingBox
+struct BoundingBox
 {
 public:
     int left;
@@ -146,7 +146,7 @@ public:
     }
 };
 
-class KDTree
+struct KDTree
 {
 public: 
     int depth; //the depth of the current node. depth_ % 2 == 1: split x, or split y
@@ -309,7 +309,7 @@ int main()
     }
 
     BoundingBox global_bounding_box = BoundingBox(points);
-    KDTree* my_tree = new KDTree(1, 0, n, global_bounding_box);
+    KDTree* my_tree = new KDTree(0, 0, n, global_bounding_box);
 
     for(int i = 0; i < m; i ++)
     {
