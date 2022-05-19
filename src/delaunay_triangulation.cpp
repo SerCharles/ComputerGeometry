@@ -20,6 +20,7 @@ public:
     long long id;
     double x;
     double y;
+    bool used = 0; //used or not
     Face* bucket = NULL; //the bucket of the point
     Point(long long id_, double x_, double y_)
     {
@@ -33,12 +34,12 @@ public:
 class Vertex
 {
 public:
-    Point* p; //the coordinate of the vertex
-    HalfEdge* incident_halfedge; //reference to the first outgoing incident half-edge
+    Point* p = NULL; //the coordinate of the vertex
+    HalfEdge* half_edge = NULL; //reference to the first outgoing incident half-edge
     Vertex(Point* p_)
     {
         this->p = p_;
-        this->incident_halfedge = NULL;
+        this->half_edge = NULL;
     }
     ~Vertex(){}
 
@@ -51,9 +52,8 @@ public:
     HalfEdge* twin = NULL; //reference to the twin half edge
     Vertex* source = NULL; //reference to the source vertex
     Vertex* target = NULL;
-    Face* incident_face = NULL; //reference to the left incident face
-    HalfEdge* previous_halfedge = NULL; //reference to CCW previous half-edge
-    HalfEdge* successor_halfedge = NULL; //reference to CCW next half-edge
+    Face* face = NULL; //reference to the left incident face
+    HalfEdge* next = NULL; //reference to CCW next half-edge
     HalfEdge()
     {
         this->valid = 1;
@@ -65,12 +65,10 @@ public:
 class Face
 {
 public:
-    bool valid = 1; //whether the face is valid
-    HalfEdge* incident_halfedge = NULL; //the first half edge incident to the face from left
+    HalfEdge* half_edge = NULL; //the first half edge incident to the face from left
     vector<Point*> bucket_points; //the unassigned points of the bucket
     Face()
     {
-        this->valid = 1;
         this->bucket_points.clear();
     }
     ~Face()
@@ -95,6 +93,28 @@ double Area2(Point* p, Point* q, Point* s)
 {
     double area = p->x * q->y - p->y * q->x + q->x * s->y - q->y * s->x + s->x * p->y - s->y * p->x;
     return area;
+}
+
+/*
+The between test, testing whether s is between p and q, if the three points are coliniar
+
+Args:
+    p [Point*]: [one of the three points]
+    s [Point*]: [one of the three points]
+    q [Point*]: [one of the three points]
+    
+Returns:
+    result [bool]: [1 if s is between p and q]
+*/
+bool Between(Point* p, Point* s, Point* q)
+{
+    bool result = 0;
+    double inner_product = (p->x - s->x) * (s->x - q->x) + (p->y - s->y) * (s->y - q->y);
+    if(inner_product >= 0)
+    {
+        result = 1;
+    }
+    return result;
 }
 
 
@@ -140,14 +160,17 @@ Returns:
 */
 bool InTriangle(Face* triangle, Point* point)
 {
-    HalfEdge* pq = triangle->incident_halfedge;
-    HalfEdge* qr = pq->successor_halfedge;
-    HalfEdge* rp = qr->successor_halfedge;
+    HalfEdge* pq = triangle->half_edge;
+    HalfEdge* qr = pq->next;
+    HalfEdge* rp = qr->next;
     Point* p = pq->source->p;
     Point* q = qr->source->p;
     Point* r = rp->source->p;
     bool result = 0;
-    if(ToLeft(p, q, point) && ToLeft(q, r, point) && ToLeft(r, p, point))
+    bool pq_result = ToLeft(p, q, point);
+    bool qr_result = ToLeft(q, r, point);
+    bool rp_result = ToLeft(r, p, point);
+    if(pq_result == qr_result && qr_result == rp_result)
     {   
         result = 1;
     }
@@ -184,24 +207,27 @@ Args:
     a [Point*]: [one of the four points]
     b [Point*]: [one of the four points]
     c [Point*]: [one of the four points]
-    d [Point*]: [one of the four points]
+    p [Point*]: [one of the four points]
 
 Returns:
     result [bool]: [inside: 1, not inside: 0]
 */
-bool InCircle(Point* a, Point* b, Point* c, Point* d)
+
+bool InCircle(Point* a, Point* b, Point* c, Point* p)
 {
     double matrix[3][3];
-    matrix[0][0] = a->x - d->x;
-    matrix[0][1] = a->y - d->y;
-    matrix[0][2] = (a->x - d->x) * (a->x - d->x) + (a->y - d->y) * (a->y - d->y);
-    matrix[1][0] = b->x - d->x;
-    matrix[1][1] = b->y - d->y;
-    matrix[1][2] = (b->x - d->x) * (b->x - d->x) + (b->y - d->y) * (b->y - d->y);
-    matrix[2][0] = c->x - d->x;
-    matrix[2][1] = c->y - d->y;
-    matrix[2][2] = (c->x - d->x) * (c->x - d->x) + (c->y - d->y) * (c->y - d->y);
-    //threshold = 1e-10
+    matrix[0][0] = a->x - p->x;
+    matrix[0][1] = a->y - p->y;
+    matrix[0][2] = (a->x - p->x) * (a->x - p->x) + (a->y - p->y) * (a->y - p->y);
+    //matrix[0][2] = a->x * a->x + a->y * a->y - p->x * p->x - p->y * p->y;
+    matrix[1][0] = b->x - p->x;
+    matrix[1][1] = b->y - p->y;
+    //matrix[1][2] = b->x * b->x + b->y * b->y - p->x * p->x - p->y * p->y;
+    matrix[1][2] = (b->x - p->x) * (b->x - p->x) + (b->y - p->y) * (b->y - p->y);
+    matrix[2][0] = c->x - p->x;
+    matrix[2][1] = c->y - p->y;
+    //matrix[1][2] = c->x * c->x + c->y * c->y - p->x * p->x - p->y * p->y;
+    matrix[2][2] = (c->x - p->x) * (c->x - p->x) + (c->y - p->y) * (c->y - p->y);
     double determinant = Determinant(matrix);
     bool result = 0;
     if(determinant >= 0)
@@ -216,57 +242,24 @@ bool InCircle(Point* a, Point* b, Point* c, Point* d)
 class DelaunayTriangulation
 {
 public:
-    vector<Point*> points; //all the points
-    vector<Point*> unassigned_points; //the unassigned points
-    vector<Vertex*> all_vertexs; //all vertexs, used in recording and deletion
+    vector<Point*> points; //all the unassigned points
     vector<HalfEdge*> all_half_edges; //all half edges, used in recording and deletion
-    vector<Face*> all_faces; //all the existed faces, used in recording and deletion
-    int n_points; //the number of points, not including the for bounding box points
 
     DelaunayTriangulation(vector<Point>& points_)
     {
         //record all the points
         this->points.clear();
-        this->unassigned_points.clear();
-        this->all_vertexs.clear();
         this->all_half_edges.clear();
-        this->all_faces.clear();
-        this->n_points = points_.size();
-        for(int i = 0; i < n_points; i ++)
+        for(int i = 0; i < points_.size(); i ++)
         {
             Point* new_point = new Point(points_[i].id, points_[i].x, points_[i].y);
             this->points.push_back(new_point);
         }
 
         //set the first two triangles to be very big, covering all possible points
-        this->InitTriangle(1e7);
+        this->InitTriangle(1e8);
     }
-
-    ~DelaunayTriangulation()
-    {
-        for(int i = 0; i < this->points.size(); i ++)
-        {
-            delete(this->points[i]);
-        }
-        for(int i = 0; i < this->all_vertexs.size(); i ++)
-        {
-            delete(this->all_vertexs[i]);
-        }
-        for(int i = 0; i < this->all_half_edges.size(); i ++)
-        {
-            delete(this->all_half_edges[i]);
-        }
-        for(int i = 0; i < this->all_faces.size(); i ++)
-        {
-            delete(this->all_faces[i]);
-        }
-        this->points.clear();
-        this->unassigned_points.clear();
-        this->all_vertexs.clear();
-        this->all_half_edges.clear();
-        this->all_faces.clear();
-    }
-    void InitTriangle(int size);
+    void InitTriangle(double size);
     void InsertOnePoint();
     void ConnectTriangle(Vertex* p, Face* original_face);
     void FlipEdge(Vertex* p, HalfEdge* ab, Vertex* x);
@@ -281,96 +274,51 @@ Args:
     size [int]: [the range of the scene]
 
 */
-void DelaunayTriangulation::InitTriangle(int size)
+void DelaunayTriangulation::InitTriangle(double size)
 {
     //init the points、vertexs and faces
-    Point* point_p = new Point(-1, -1e7, -1e7);
-    Point* point_q = new Point(-1, 1e7, -1e7);
-    Point* point_r = new Point(-1, 1e7, 1e7);
-    Point* point_s = new Point(-1, -1e7, 1e7);
+    Point* point_p = new Point(-1, 3 * size, size);
+    Point* point_q = new Point(-1, -3 * size, size);
+    Point* point_r = new Point(-1, 0, -2 * size);
     Vertex* p = new Vertex(point_p);
     Vertex* q = new Vertex(point_q);
     Vertex* r = new Vertex(point_r);
-    Vertex* s = new Vertex(point_s);
-    Face* face_pqr = new Face();
-    Face* face_prs = new Face();
+    Face* pqr = new Face();
 
     //build the half edges
     HalfEdge* pq = new HalfEdge();
     HalfEdge* qr = new HalfEdge();
     HalfEdge* rp = new HalfEdge();
-    face_pqr->incident_halfedge = pq;
-    pq->incident_face = face_pqr;
-    qr->incident_face = face_pqr;
-    rp->incident_face = face_pqr;
+    pqr->half_edge = pq;
+    pq->face = pqr;
+    qr->face = pqr;
+    rp->face = pqr;
     pq->source = p;
-    qr->source = q;
-    rp->source = r;
     pq->target = q;
+    qr->source = q;
     qr->target = r;
+    rp->source = r;
     rp->target = p;
-    pq->previous_halfedge = rp;
-    qr->previous_halfedge = pq;
-    rp->previous_halfedge = qr;
-    pq->successor_halfedge = qr;
-    qr->successor_halfedge = rp;
-    rp->successor_halfedge = pq;
-    HalfEdge* pr = new HalfEdge();
-    HalfEdge* rs = new HalfEdge();
-    HalfEdge* sp = new HalfEdge();
-    face_prs->incident_halfedge = pr;
-    pr->incident_face = face_prs;
-    rs->incident_face = face_prs;
-    sp->incident_face = face_prs;
-    pr->source = p;
-    rs->source = r;
-    sp->source = s;
-    pr->target = r;
-    rs->target = s;
-    sp->target = p;
-    pr->previous_halfedge = sp;
-    rs->previous_halfedge = pr;
-    sp->previous_halfedge = rs;
-    pr->successor_halfedge = rs;
-    rs->successor_halfedge = sp;
-    sp->successor_halfedge = pr;
-    pr->twin = rp;
-    rp->twin = pr;
+    pq->next = qr;
+    qr->next = rp;
+    rp->next = pq;
+    
     
     //allocate the unassigned points into buckets
     for(int i = 0; i < this->points.size(); i ++)
     {
         Point* point = this->points[i];
-        if(InTriangle(face_pqr, point))
-        {
-            point->bucket = face_pqr;
-            face_pqr->bucket_points.push_back(point);
-        }
-        else 
-        {
-            point->bucket = face_prs;
-            face_prs->bucket_points.push_back(point);
-        }
-        this->unassigned_points.push_back(point);
+        point->bucket = pqr;
+        pqr->bucket_points.push_back(point);
     }
 
     //put the vertexs、
-    this->points.push_back(point_p);
-    this->points.push_back(point_q);
-    this->points.push_back(point_r);
-    this->points.push_back(point_s);
-    this->all_vertexs.push_back(p);
-    this->all_vertexs.push_back(q);
-    this->all_vertexs.push_back(r);
-    this->all_vertexs.push_back(s);
+    point_p->used = 1;
+    point_q->used = 1;
+    point_r->used = 1;
     this->all_half_edges.push_back(pq);
     this->all_half_edges.push_back(qr);
     this->all_half_edges.push_back(rp);
-    this->all_half_edges.push_back(pr);
-    this->all_half_edges.push_back(rs);
-    this->all_half_edges.push_back(sp);
-    this->all_faces.push_back(face_pqr);
-    this->all_faces.push_back(face_prs);
 }
 
 /*
@@ -383,9 +331,9 @@ Args:
 void DelaunayTriangulation::ConnectTriangle(Vertex* p, Face* original_face)
 {
     Face* abc = original_face;
-    HalfEdge* ab = abc->incident_halfedge;
-    HalfEdge* bc = ab->successor_halfedge;
-    HalfEdge* ca = bc->successor_halfedge;
+    HalfEdge* ab = abc->half_edge;
+    HalfEdge* bc = ab->next;
+    HalfEdge* ca = bc->next;
     Vertex* a = ab->source;
     Vertex* b = bc->source;
     Vertex* c = ca->source;
@@ -398,71 +346,66 @@ void DelaunayTriangulation::ConnectTriangle(Vertex* p, Face* original_face)
     Face* pab = new Face();
     Face* pbc = new Face();
     Face* pca = new Face();
-    p->incident_halfedge = pa;
+    p->half_edge = pa;
     pa->source = p;
-    pb->source = p;
-    pc->source = p;
-    ap->source = a;
-    bp->source = b;
-    cp->source = c;
     pa->target = a;
+    pb->source = p;
     pb->target = b;
+    pc->source = p;
     pc->target = c;
+
+    ap->source = a;
     ap->target = p;
+    bp->source = b;
     bp->target = p;
+    cp->source = c;
     cp->target = p;
-    pa->incident_face = pab;
-    pb->incident_face = pbc;
-    pc->incident_face = pca;
-    ap->incident_face = pca;
-    bp->incident_face = pab;
-    cp->incident_face = pbc;
-    ab->incident_face = pab;
-    bc->incident_face = pbc;
-    ca->incident_face = pca;
+
+    pa->face = pab;
+    pb->face = pbc;
+    pc->face = pca;
+    ap->face = pca;
+    bp->face = pab;
+    cp->face = pbc;
+    ab->face = pab;
+    bc->face = pbc;
+    ca->face = pca;
+
     pa->twin = ap;
     ap->twin = pa;
     pb->twin = bp;
     bp->twin = pb;
     pc->twin = cp;
     cp->twin = pc;
-    pa->successor_halfedge = ab;
-    ab->successor_halfedge = bp;
-    bp->successor_halfedge = pa;
-    pa->previous_halfedge = bp;
-    ab->previous_halfedge = pa;
-    bp->previous_halfedge = ab;
-    pb->successor_halfedge = bc;
-    bc->successor_halfedge = cp;
-    cp->successor_halfedge = pb;
-    pb->previous_halfedge = cp;
-    bc->previous_halfedge = pb;
-    cp->previous_halfedge = bc;
-    pc->successor_halfedge = ca;
-    ca->successor_halfedge = ap;
-    ap->successor_halfedge = pc;
-    pc->previous_halfedge = ap;
-    ca->previous_halfedge = pc;
-    ap->previous_halfedge = ca;
-    pab->incident_halfedge = pa;
-    pbc->incident_halfedge = pb;
-    pca->incident_halfedge = pc;
+
+    pa->next = ab;
+    ab->next = bp;
+    bp->next = pa;
+
+    pb->next = bc;
+    bc->next = cp;
+    cp->next = pb;
+
+    pc->next = ca;
+    ca->next = ap;
+    ap->next = pc;
+
+    pab->half_edge = pa;
+    pbc->half_edge = pb;
+    pca->half_edge = pc;
+
     this->all_half_edges.push_back(pa);
     this->all_half_edges.push_back(pb);
     this->all_half_edges.push_back(pc);
     this->all_half_edges.push_back(ap);
     this->all_half_edges.push_back(bp);
     this->all_half_edges.push_back(cp);
-    this->all_faces.push_back(pab);
-    this->all_faces.push_back(pbc);
-    this->all_faces.push_back(pca);
-
 
     //update bucket points
     for(int i = 0; i < abc->bucket_points.size(); i ++)
     {
         Point* the_point = abc->bucket_points[i];
-        if(the_point->bucket == NULL)
+        if(the_point->used == 1)
         {
             continue;
         }
@@ -483,10 +426,8 @@ void DelaunayTriangulation::ConnectTriangle(Vertex* p, Face* original_face)
         }
     }
     abc->bucket_points.clear();
-    abc->valid = 0;
+    delete(abc);
 }
-
-
 
 /*
 Flip Edge:Remove the edge ab and ba, add edge px and xp, renew the triangles
@@ -499,78 +440,84 @@ Args:
 void DelaunayTriangulation::FlipEdge(Vertex* p, HalfEdge* ab, Vertex* x)
 {
     HalfEdge* ba = ab->twin;
-    HalfEdge* ax = ba->successor_halfedge;
-    HalfEdge* xb = ax->successor_halfedge;
-    HalfEdge* pa = ab->previous_halfedge;
-    HalfEdge* bp = ab->successor_halfedge;
-    Face* pab = pa->incident_face;
-    Face* bax = ba->incident_face;
+    HalfEdge* ax = ba->next;
+    HalfEdge* xb = ax->next;
+    HalfEdge* bp = ab->next;
+    HalfEdge* pa = bp->next;
+    Face* pab = pa->face;
+    Face* bax = ba->face;
     HalfEdge* px = new HalfEdge();
     HalfEdge* xp = new HalfEdge();
+
     px->source = p;
-    xp->source = x;
     px->target = x;
+    xp->source = x;
     xp->target = p;
-    pa->successor_halfedge = ax;
-    ax->successor_halfedge = xp;
-    xp->successor_halfedge = pa;
-    pa->previous_halfedge = xp;
-    ax->previous_halfedge = pa;
-    xp->previous_halfedge = ax;
-    bp->successor_halfedge = px;
-    px->successor_halfedge = xb;
-    xb->successor_halfedge = bp;
-    bp->previous_halfedge = xb;
-    px->previous_halfedge = bp;
-    xb->previous_halfedge = px;
+
+    pa->next = ax;
+    ax->next = xp;
+    xp->next = pa;
+
+    bp->next = px;
+    px->next = xb;
+    xb->next = bp;
+
     px->twin = xp;
     xp->twin = px;
     Face* pax = new Face();
     Face* bpx = new Face();
-    pax->incident_halfedge = pa;
-    bpx->incident_halfedge = bp;
-    pa->incident_face = pax;
-    ax->incident_face = pax;
-    xp->incident_face = pax;
-    bp->incident_face = bpx;
-    px->incident_face = bpx;
-    xb->incident_face = bpx;
+    pax->half_edge = xp;
+    bpx->half_edge = px;
+    pa->face = pax;
+    ax->face = pax;
+    xp->face = pax;
+    bp->face = bpx;
+    px->face = bpx;
+    xb->face = bpx;
     this->all_half_edges.push_back(px);
     this->all_half_edges.push_back(xp);
-    this->all_faces.push_back(pax);
-    this->all_faces.push_back(bpx); 
 
     //update buckets
     for(int i = 0; i < pab->bucket_points.size(); i ++)
     {
-        if(InTriangle(pax, pab->bucket_points[i]))
+        Point* the_point = pab->bucket_points[i];
+        if(the_point->used == 1)
         {
-            pax->bucket_points.push_back(pab->bucket_points[i]);
-            pab->bucket_points[i]->bucket = pax;
+            continue;
+        }
+        if(InTriangle(pax, the_point))
+        {
+            pax->bucket_points.push_back(the_point);
+            the_point->bucket = pax;
         }
         else 
         {
-            bpx->bucket_points.push_back(pab->bucket_points[i]);
-            pab->bucket_points[i]->bucket = bpx;
+            bpx->bucket_points.push_back(the_point);
+            the_point->bucket = bpx;
         }
     }
     for(int i = 0; i < bax->bucket_points.size(); i ++)
     {
-        if(InTriangle(pax, bax->bucket_points[i]))
+        Point* the_point = bax->bucket_points[i];
+        if(the_point->used == 1)
         {
-            pax->bucket_points.push_back(bax->bucket_points[i]);
-            bax->bucket_points[i]->bucket = pax;
+            continue;
+        }
+        if(InTriangle(pax, the_point))
+        {
+            pax->bucket_points.push_back(the_point);
+            the_point->bucket = pax;
         }
         else 
         {
-            bpx->bucket_points.push_back(bax->bucket_points[i]);
-            bax->bucket_points[i]->bucket = bpx;
+            bpx->bucket_points.push_back(the_point);
+            the_point->bucket = bpx;
         }
     }
     pab->bucket_points.clear();
     bax->bucket_points.clear();
-    pab->valid = 0;
-    bax->valid = 0;
+    delete(pab);
+    delete(bax);
     ab->valid = 0;
     ba->valid = 0;
 }
@@ -586,21 +533,21 @@ Returns:
 */
 Vertex* DelaunayTriangulation::RightSite(HalfEdge* ab)
 {
-    if(ab == NULL)
+    if(ab == NULL || ab->valid == 0)
     {
         return NULL;
     }
     HalfEdge* ba = ab->twin;
-    if(ba == NULL)
+    if(ba == NULL || ba->valid == 0)
     {
         return NULL;
     }
-    HalfEdge* xb = ba->previous_halfedge;
-    if(xb == NULL)
+    HalfEdge* ax = ba->next;
+    if(ax == NULL || ax->valid == 0)
     {
         return NULL;
     }
-    Vertex* x = xb->source;
+    Vertex* x = ax->target;
     return x;
 }
 
@@ -610,21 +557,21 @@ Iteratively insert one point to update the delaunay triangulation
 void DelaunayTriangulation::InsertOnePoint()
 {
     //get the new point and the bucket faces
-    Point* new_point = this->unassigned_points[unassigned_points.size() - 1];
-    this->unassigned_points.pop_back();
-    Face* original_face = new_point->bucket;
-    new_point->bucket = NULL;
-    HalfEdge* ab = original_face->incident_halfedge;
-    HalfEdge* bc = ab->successor_halfedge;
-    HalfEdge* ca = bc->successor_halfedge;
+    Point* new_point = this->points[this->points.size() - 1];
+    this->points.pop_back();
+    Face* abc = new_point->bucket;
+    new_point->used = 1;
     Vertex* p = new Vertex(new_point);
-    this->all_vertexs.push_back(p);
+    HalfEdge* ab = abc->half_edge;
+    HalfEdge* bc = ab->next;
+    HalfEdge* ca = bc->next;
     Vertex* a = ab->source;
     Vertex* b = bc->source;
     Vertex* c = ca->source;
 
     //connect pa, pb, pc, form 3 new triangles
-    this->ConnectTriangle(p, original_face);
+    this->ConnectTriangle(p, abc);
+
 
     //Swap Test
     queue<HalfEdge*> Q;
@@ -642,15 +589,15 @@ void DelaunayTriangulation::InsertOnePoint()
         Vertex* b = ab->target;
         Q.pop();
         Vertex* x = this->RightSite(ab);
-        if(x == NULL)
+        if(x == NULL || x == p)
         {
             continue;
         }
         if(InCircle(p->p, a->p, b->p, x->p))
         {
             HalfEdge* ba = ab->twin;
-            HalfEdge* ax = ba->successor_halfedge;
-            HalfEdge* xb = ax->successor_halfedge;
+            HalfEdge* ax = ba->next;
+            HalfEdge* xb = ax->next;
             Q.push(ax);
             Q.push(xb);
             this->FlipEdge(p, ab, x);
@@ -679,7 +626,7 @@ vector<HalfEdge*> DelaunayTriangulation::GetFinalEdges()
             }
             long long s = the_edge->source->p->id;
             long long t = the_edge->target->p->id;
-            if(s >= 0 && t >= 0)
+            if(s >= 0 && t >= 0 && s != t)
             {
                 result_edges.push_back(the_edge);
             }
@@ -689,86 +636,32 @@ vector<HalfEdge*> DelaunayTriangulation::GetFinalEdges()
 }
 
 
-struct UnionFind {
-public:
-    void clear(int n) {
-        for (int i = 0; i <= n; i++) fa[i] = i;
-    }
-    void join(int x, int y) {
-        int a = find(x), b = find(y);
-        fa[a] = b;
-    }
-    int find(int x) { return (fa[x] == x) ? x : fa[x] = find(fa[x]); }
-    int fa[100010];
-};
-UnionFind uf;
-struct E2 {
-    int x, y;
-    double w;
-    bool operator<(const E2& e) const { return w < e.w; }
-};
-
-
-
-
 int main()
 {
     vector<Point> points;
     points.clear();
     int n;
     scanf("%d", &n);
-    //shake the input to avoid coliniar, randomly shuffle the list
-    mt19937 random_generator;
-    random_generator.seed(14530529); //set seed to reproduce
-    normal_distribution<double> nd(0, 1e-10); //a normal distribution noise
     for(int i = 1; i <= n; i ++)
     {
         int x, y;
         scanf("%d %d", &x, &y);
-        double shaked_x = double(x) + nd(random_generator);
-        double shaked_y = double(y) + nd(random_generator);
-        Point new_point = Point(i, shaked_x, shaked_y);
-        //Point new_point = Point(i, double(x), double(y));
+        Point new_point = Point(i, double(x), double(y));
         points.push_back(new_point);
     }
+
+    //randomly shuffle the list
+    mt19937 random_generator;
+    random_generator.seed(14530529); //set seed to reproduce
     shuffle(points.begin(), points.end(), random_generator);
+
     DelaunayTriangulation* dt = new DelaunayTriangulation(points);
     for(int i = 1; i <= n; i ++)
     {
         dt->InsertOnePoint();
     }
+
     vector<HalfEdge*> result_edges = dt->GetFinalEdges();
-
-    
-    std::vector<E2> edges;
-    edges.clear();
-    for(int i = 0; i < result_edges.size(); i ++)
-    {
-        Point* s = result_edges[i]->source->p;
-        Point* t = result_edges[i]->target->p;
-        int s_id = s->id;
-        int t_id = t->id;
-        if(s_id >= 0 && t_id >= 0)
-        {
-            double dist = sqrt((s->x - t->x) * (s->x - t->x) + (s->y - t->y) * (s->y - t->y));
-            edges.push_back({s_id, t_id, dist});
-        }
-    }
-    sort(edges.begin(), edges.end());
-    double ans = 0;
-    uf.clear(n);
-    for (auto& e : edges) {
-        int p = uf.find(e.x);
-        int q = uf.find(e.y);
-        if (p != q) {
-            ans += e.w;
-            uf.join(e.x, e.y);
-        }
-    }
-    printf("%.6lf\n", ans);
-    
-
-    /*
     long long result = 0;
     for(int i = 0; i < result_edges.size(); i ++)
     {
@@ -779,7 +672,7 @@ int main()
     }
     result = result % (result_edges.size() + 1);
     printf("%lld", result);
-    */
+    
     //delete(dt);
     return 0;
 }
