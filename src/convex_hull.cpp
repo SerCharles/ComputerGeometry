@@ -18,7 +18,6 @@ Args:
 class Point
 {
 public:
-    //和张雄帅同学交流，意识到需要把x，y，id坐标改成long long，并且注意取余运算。
     long long x;
     long long y;
     int id;

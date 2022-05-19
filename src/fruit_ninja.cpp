@@ -1,4 +1,3 @@
-//整体算法参考了https://oi-wiki.org//geometry/half-plane/
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
@@ -296,7 +295,6 @@ Returns:
 */
 double ConvexPolygonArea(const vector<Point>& points)
 {
-    //参考了https://blog.csdn.net/Mikchy/article/details/81490908
     double result = 0.0;
     if(points.size() <= 2)
     {

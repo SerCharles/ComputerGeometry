@@ -1,5 +1,3 @@
-//整体算法参考了论文Computing the Convex Hull of Line Intersections 和博客 https://zhuanlan.zhihu.com/p/81774256
-//感谢陈嘉杰同学提供论文资料
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
