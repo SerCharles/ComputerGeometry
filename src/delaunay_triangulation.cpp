@@ -533,16 +533,13 @@ Returns:
 */
 Vertex* DelaunayTriangulation::RightSite(HalfEdge* ab)
 {
-    if(ab == NULL || ab->valid == 0)
-    {
-        return NULL;
-    }
     HalfEdge* ba = ab->twin;
     if(ba == NULL || ba->valid == 0)
     {
         return NULL;
     }
     HalfEdge* ax = ba->next;
+    
     if(ax == NULL || ax->valid == 0)
     {
         return NULL;
@@ -672,7 +669,5 @@ int main()
     }
     result = result % (result_edges.size() + 1);
     printf("%lld", result);
-    
-    //delete(dt);
     return 0;
 }
