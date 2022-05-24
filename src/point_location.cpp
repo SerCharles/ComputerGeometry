@@ -1,9 +1,12 @@
+//本来之前用了set做内存回收机制，但是由于set的增删复杂度是O(logn)，导致凭空多了O(nlogn)的时间复杂度会超时，因此内存回收我在这里删除了。。。
+//整体框架参考了https://blog.csdn.net/weixin_44800504/article/details/111402001和https://blog.csdn.net/weixin_44800504/article/details/111408905?spm=1001.2014.3001.5502
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
 #include <cmath>
 #include <list>
+#include <set>
 #include <algorithm>
 using namespace std;
 #define POINT 1
@@ -142,6 +145,7 @@ bool CompareTX(Line* a, Line* b)
 
 /*
 Definition of a trapezoid
+
 Args:
     left [double]: [the left x of the trapezoid]
     right [double]: [the right x of the trapezoid]
@@ -196,9 +200,15 @@ public:
     }
     ~Node()
     {
+        if(this->left_son != NULL && this->left_son->type != TRAP)
+        {
+            delete(this->left_son);
+        }
+        if(this->right_son != NULL && this->right_son->type != TRAP)
+        {
+            delete(this->right_son);
+        }
         this->fathers.clear();
-        delete(this->left_son);
-        delete(this->right_son);
     }
     
 
@@ -281,7 +291,10 @@ public:
     }
     ~TrapNode()
     {
-        delete(trap);
+        if(this->trap != NULL)
+        {
+            delete(this->trap);
+        }
     }
 };
 
@@ -296,11 +309,9 @@ public:
     double max_y = 1000000; 
     Line* up_line = NULL;
     Line* down_line = NULL;
-
     vector<Line*> lines; // all the lines for the trapezoidal map
-
     Node* root = NULL; //the root of the tree
-
+    //There also need a set for the trap nodes for Garbage Collection, but Time Limit Exceeded...So I deleted the module...
     TrapezoidalTree(vector<Line*>& lines_)
     {
         //record the lines
@@ -308,7 +319,6 @@ public:
         {
             this->lines.push_back(lines_[i]);
         }
-
         //init the framework: the root node is a trap node of the bounding box of the tree
         Point* up_left = new Point(min_x, max_y);
         Point* up_right = new Point(max_x, max_y);
@@ -319,13 +329,6 @@ public:
         Trap* main_trap = new Trap(min_x, max_x, this->up_line, this->down_line);
         this->root = new TrapNode(main_trap);
     } 
-
-    ~TrapezoidalTree()
-    {
-        delete(this->root);
-        delete(this->up_line);
-        delete(this->down_line);
-    }
 
     void BuildTree();
     TrapNode* SearchPoint(Node* node, Point* p);
@@ -357,7 +360,7 @@ TrapNode* TrapezoidalTree::SearchPoint(Node* node, Point* p)
     else if(node->type == POINT)
     {
         //point node
-        //< left, >= right: buggy, need to special judge the right point of each lines by binary search
+        //< left, >= right: buggy for border points, need to special judge by binary search
         double point_x = ((PointNode*)node)->point->x;
         if(p->x < point_x)
         {
@@ -495,7 +498,9 @@ void TrapezoidalTree::MergeTrapNode(TrapNode* left, TrapNode* right)
 
     //update topology
     left->right_down = right->right_down;
+    this->UpdateNeighborTopology(right, left, right->right_down);
     left->right_up = right->right_up;
+    this->UpdateNeighborTopology(right, left, right->right_up);
 
     //delete right
     delete(right);
@@ -612,9 +617,8 @@ void TrapezoidalTree::InsertLine(TrapNode* trap, Line* l)
         this->UpdateNeighborTopology(old_trap_node, R, old_trap_node->right_up);
         this->UpdateNeighborTopology(old_trap_node, R, old_trap_node->right_down);
 
-        //delete old node
-        delete(old_trap_node);
         split_nodes.clear();
+        delete(old_trap_node);
     }
 
     //many new nodes
@@ -719,10 +723,12 @@ void TrapezoidalTree::InsertLine(TrapNode* trap, Line* l)
                 if(split_nodes[i]->left_up != split_nodes[i - 1])
                 {
                     current_a->left_up = split_nodes[i]->left_up;
+                    this->UpdateNeighborTopology(split_nodes[i], current_a, split_nodes[i]->left_up);
                 }
                 if(split_nodes[i]->left_down != split_nodes[i - 1])
                 {
                     current_b->left_down = split_nodes[i]->left_down;
+                    this->UpdateNeighborTopology(split_nodes[i], current_b, split_nodes[i]->left_down);
                 }
             }
                 
@@ -731,22 +737,17 @@ void TrapezoidalTree::InsertLine(TrapNode* trap, Line* l)
                 if(split_nodes[i]->right_up != split_nodes[i + 1])
                 {
                     current_a->right_up = split_nodes[i]->right_up;
+                    this->UpdateNeighborTopology(split_nodes[i], current_a, split_nodes[i]->right_up);
                 }
                 if(split_nodes[i]->right_down != split_nodes[i + 1])
                 {
                     current_b->right_down = split_nodes[i]->right_down;
+                    this->UpdateNeighborTopology(split_nodes[i], current_b, split_nodes[i]->right_down);
                 }
             }
             ia ++;
             ib ++;
         }
-        //remove old
-        for(int i = 0; i < split_nodes.size(); i ++)
-        {
-            delete(split_nodes[i]);
-        }
-        split_nodes.clear();
-
 
         //merge the redundant As and Bs
         ia = new_As.begin();
@@ -875,7 +876,11 @@ void TrapezoidalTree::InsertLine(TrapNode* trap, Line* l)
         R->left_down = (*ib);
 
 
-        //clear data
+        for(int i = 0; i < split_nodes.size(); i ++)
+        {
+            delete(split_nodes[i]);
+        }
+        split_nodes.clear();
         new_As.clear();
         new_Bs.clear();
         new_rs.clear();
@@ -983,11 +988,6 @@ Line* SpecialJudge(Point* query_point, vector<Line*>& lines_sx, vector<Line*>& l
     return best_line;
 }
 
-
-
-
-
-
 int main()
 {
     //input
@@ -1037,7 +1037,6 @@ int main()
 
         double best_dist_special_judge;
         Line* best_line_special_judge = SpecialJudge(query_points[i], all_lines_sx, all_lines_tx, &best_dist_special_judge);
-        
         Line* best_line;
         if(best_dist_tree < best_dist_special_judge)
         {
@@ -1048,27 +1047,14 @@ int main()
             best_line = best_line_special_judge;
         }
         long long best_id = best_line->id;
-        printf("%lld\n", best_id);
+        if(best_id >= 1 && best_id <= n)
+        {
+            printf("%lld\n", best_id);
+        }
+        else 
+        {
+            printf("N\n");
+        }
     }
-
-    //delete
-    delete(the_tree);
-    for(int i = 0; i < normal_lines.size(); i ++)
-    {
-        delete(normal_lines[i]);
-    }
-    for(int i = 0; i < all_lines_sx.size(); i ++)
-    {
-        delete(all_lines_sx[i]);
-    }
-    for(int i = 0; i < query_points.size(); i ++)
-    {
-        delete(query_points[i]);
-    }
-    normal_lines.clear();
-    all_lines_sx.clear();
-    all_lines_tx.clear();
-    query_points.clear();
-    
     return 0;
 }
