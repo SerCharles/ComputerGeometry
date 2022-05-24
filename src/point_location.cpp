@@ -1,13 +1,11 @@
-//本来之前用了set做内存回收机制，但是由于set的增删复杂度是O(logn)，导致凭空多了O(nlogn)的时间复杂度会超时，因此内存回收我在这里删除了。。。
-//整体框架参考了https://blog.csdn.net/weixin_44800504/article/details/111402001和https://blog.csdn.net/weixin_44800504/article/details/111408905?spm=1001.2014.3001.5502
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
 #include <cmath>
 #include <list>
-#include <set>
 #include <algorithm>
+#include <random>
 using namespace std;
 #define POINT 1
 #define LINE 2
@@ -311,7 +309,6 @@ public:
     Line* down_line = NULL;
     vector<Line*> lines; // all the lines for the trapezoidal map
     Node* root = NULL; //the root of the tree
-    //There also need a set for the trap nodes for Garbage Collection, but Time Limit Exceeded...So I deleted the module...
     TrapezoidalTree(vector<Line*>& lines_)
     {
         //record the lines
@@ -1025,6 +1022,10 @@ int main()
     sort(all_lines_sx.begin(), all_lines_sx.end(), CompareSX);
     sort(all_lines_tx.begin(), all_lines_tx.end(), CompareTX);
 
+    //randomly shuffle the lines
+    mt19937 random_generator;
+    random_generator.seed(14530529); //set seed to reproduce
+    shuffle(normal_lines.begin(), normal_lines.end(), random_generator);
 
     //main
     TrapezoidalTree* the_tree = new TrapezoidalTree(normal_lines);
